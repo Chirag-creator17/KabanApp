@@ -18,6 +18,7 @@ celery = Celery("app")
 cache = Cache(config={'CACHE_TYPE': 'RedisCache'})
 cache.init_app(app)
 
+
 class MyCeleryTasks(celery.Task):
     def __call__(self, *args, **kwargs):
         with app.app_context():
@@ -28,10 +29,12 @@ celery.conf.update(broker_url="redis://localhost:6379/1",
                    result_backend="redis://localhost:6379/2", result_expires=60, timezone='Asia/Kolkata')
 celery.Task = MyCeleryTasks
 
+
 @app.route("/")
 def trys():
-    jobid=mains.delay()
+    jobid = mains.delay()
     return str(jobid)
+
 
 @celery.task()
 def mains():
@@ -79,7 +82,7 @@ def login():
         token = jwt.encode({
             'public_id': test.public_id,
             'exp': datetime.utcnow() + timedelta(minutes=80)
-        }, app.config['SECRET_KEY'],algorithm="HS256")
+        }, app.config['SECRET_KEY'], algorithm="HS256")
         # access_token = create_access_token(identity=email)
         print(token)
         return jsonify(message="Login Succeeded!", token=token), 201
@@ -87,17 +90,22 @@ def login():
         return jsonify(message="Bad Email or Password"), 401
 
 
+@cache.memoize(60)
+def getList(current_user):
+    lists = List.query.filter_by(user_id=current_user).all()
+    results = [
+        {
+            "list_id": list.list_id,
+            "list_name": list.list_name,
+        } for list in lists]
+    return results
+
+
 @app.route("/lists", methods=["GET", "POST", "PUT", "DELETE"])
 @token_required
 def lists(current_user):
     if (request.method == "GET"):
-        lists = List.query.filter_by(user_id=current_user.user_id).all()
-        results = [
-            {
-                "list_id": list.list_id,
-                "list_name": list.list_name,
-            } for list in lists]
-        return jsonify(results), 200
+        return jsonify(getList(current_user.user_id)), 200
     if (request.method == "POST"):
         # name = request.form['name']
         name = request.json['name']
@@ -217,14 +225,16 @@ def listDownload(current_user, list_id):
     send_email(user.email, title, msg, file_name)
     os.remove(file_name)
 
+
 @app.route("/downloadList/<int:list_id>", methods=["GET"])
 @token_required
 def downloadList(current_user, list_id):
     listDownload.delay(current_user.user_id, list_id)
     return jsonify(message="Email sent sucessfully"), 201
 
+
 @celery.task()
-def cardDownload(current_user,list_id,card_id):
+def cardDownload(current_user, list_id, card_id):
     user = User.query.filter_by(user_id=current_user).first()
     card = Cards.query.filter_by(
         user_id=current_user, list_id=list_id, card_id=card_id).first()
@@ -244,6 +254,7 @@ def cardDownload(current_user,list_id,card_id):
     send_email(user.email, title, msg, file_name)
     os.remove(file_name)
 
+
 @app.route("/downloadCard/<int:list_id>/<int:card_id>", methods=["GET"])
 @token_required
 def downloadCard(current_user, list_id, card_id):
@@ -257,42 +268,49 @@ chat_url = "https://chat.googleapis.com/v1/spaces/AAAAgU1jlvs/messages?key=AIzaS
 @celery.task()
 def massChat():
     message = {'text': "No deadline today"}
-    now=datetime.now().strftime("%Y-%m-%d")
-    card=Cards.query.filter_by(card_deadline=now).all()
-    if(len(card)>0):
-        message["text"]="Deadline today"
+    now = datetime.now().strftime("%Y-%m-%d")
+    card = Cards.query.filter_by(card_deadline=now).all()
+    if (len(card) > 0):
+        message["text"] = "Deadline today"
     headers = {'Content-Type': 'application/json; charset=UTF-8'}
     requests.post(chat_url, data=json.dumps(message), headers=headers)
     return ""
 
+
 @celery.task()
 def monthlyReport():
-    users=list(User.query.all())
+    users = list(User.query.all())
     print(users)
     for user in users:
-        userId=user.user_id
-        cards=Cards.query.filter_by(user_id=userId).all()
-        cards_made=[]
-        now=datetime.now().strftime("%Y-%m-%d")
+        userId = user.user_id
+        cards = Cards.query.filter_by(user_id=userId).all()
+        cards_made = []
+        now = datetime.now().strftime("%Y-%m-%d")
         for i in cards:
-            if(i.card_completion_date!=None):
-                if(i.card_completion_date[:7]<=now[:7]):
-                    cards_made.append({"card_title":i.card_title,"card_completion_date":i.card_completion_date,"card_deadline":i.card_deadline,"card_status":i.card_status})
-        msg="Cards made in this month:\n\n"
-        j=1
+            if (i.card_completion_date != None):
+                if (i.card_completion_date[:7] <= now[:7]):
+                    cards_made.append({"card_title": i.card_title, "card_completion_date": i.card_completion_date,
+                                      "card_deadline": i.card_deadline, "card_status": i.card_status})
+        msg = "Cards made in this month:\n\n"
+        j = 1
         for i in cards_made:
-            msg+=str(j)+". "
-            j+=1
-            msg+="Card Title: "+i["card_title"]+"\nCard Completion Date: "+i["card_completion_date"]+"\nCard Deadline: "+i["card_deadline"]+"\nCard Status: "+i["card_status"]+"\n\n"
+            msg += str(j)+". "
+            j += 1
+            msg += "Card Title: "+i["card_title"]+"\nCard Completion Date: "+i["card_completion_date"] + \
+                "\nCard Deadline: "+i["card_deadline"] + \
+                "\nCard Status: "+i["card_status"]+"\n\n"
             # msg+=i["card_title"]+" "+i["card_completion_date"]+" "+i["card_deadline"]+" "+i["card_status"]+"\n"
-        send_email(user.email,"Monthly Report",msg)
+        send_email(user.email, "Monthly Report", msg)
         # print(msg)
+
 
 @celery.on_after_finalize.connect
 def set_pdf_tasks(sender, **kwargs):
-    sender.add_periodic_task(crontab(minute=0,hour = 5,day_of_month = 1), monthlyReport.s(),name="Monthly Report")
+    sender.add_periodic_task(crontab(
+        minute=0, hour=5, day_of_month=1), monthlyReport.s(), name="Monthly Report")
     # sender.add_periodic_task(10.0, monthlyReport.s(), name='Monthly Report')
-    
+
+
 @celery.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
@@ -300,6 +318,7 @@ def setup_periodic_tasks(sender, **kwargs):
     # sender.add_periodic_task(
     #     10.0, massChat.s(), name='Daily Reminder')
     # sender.add_periodic_task(crontab(minute=0,hour = 5,day_of_month = 1), monthlyReport.s(), name='Pdf Dashboard Report')
+
 
 if __name__ == "__main__":
     # db.create_all()
