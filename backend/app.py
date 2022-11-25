@@ -3,6 +3,7 @@ import os
 import jwt
 from functools import wraps
 from flask import Flask, request, jsonify, send_file
+from flask_caching import Cache
 from models import *
 from datetime import datetime, timedelta
 import requests
@@ -14,6 +15,8 @@ app.config['SECRET_KEY'] = 'chirag'
 CORS(app)
 celery = Celery("app")
 
+cache = Cache(config={'CACHE_TYPE': 'RedisCache'})
+cache.init_app(app)
 
 class MyCeleryTasks(celery.Task):
     def __call__(self, *args, **kwargs):
@@ -76,9 +79,10 @@ def login():
         token = jwt.encode({
             'public_id': test.public_id,
             'exp': datetime.utcnow() + timedelta(minutes=80)
-        }, app.config['SECRET_KEY'])
+        }, app.config['SECRET_KEY'],algorithm="HS256")
         # access_token = create_access_token(identity=email)
-        return jsonify(message="Login Succeeded!", token=token.decode('UTF-8')), 201
+        print(token)
+        return jsonify(message="Login Succeeded!", token=token), 201
     else:
         return jsonify(message="Bad Email or Password"), 401
 
@@ -186,14 +190,13 @@ def cards(current_user, list_id):
         return jsonify(message="Card deleted sucessfully"), 201
 
 
-@app.route("/downloadList/<int:list_id>", methods=["GET"])
-@token_required
-def downloadList(current_user, list_id):
-    user = User.query.filter_by(user_id=current_user.user_id).first()
+@celery.task()
+def listDownload(current_user, list_id):
+    user = User.query.filter_by(user_id=current_user).first()
     lists = List.query.filter_by(
-        user_id=current_user.user_id, list_id=list_id).first()
+        user_id=current_user, list_id=list_id).first()
     cards = Cards.query.filter_by(
-        user_id=current_user.user_id, list_id=list_id).all()
+        user_id=current_user, list_id=list_id).all()
     no_of_completed = 0
     card_list = ""
     for card in cards:
@@ -213,18 +216,20 @@ def downloadList(current_user, list_id):
     f.close()
     send_email(user.email, title, msg, file_name)
     os.remove(file_name)
-    return "Downloaded"
 
-
-@app.route("/downloadCard/<int:list_id>/<int:card_id>", methods=["GET"])
+@app.route("/downloadList/<int:list_id>", methods=["GET"])
 @token_required
+def downloadList(current_user, list_id):
+    listDownload.delay(current_user.user_id, list_id)
+    return jsonify(message="Email sent sucessfully"), 201
+
 @celery.task()
-def downloadCard(current_user, list_id, card_id):
-    user = User.query.filter_by(user_id=current_user.user_id).first()
+def cardDownload(current_user,list_id,card_id):
+    user = User.query.filter_by(user_id=current_user).first()
     card = Cards.query.filter_by(
-        user_id=current_user.user_id, list_id=list_id, card_id=card_id).first()
+        user_id=current_user, list_id=list_id, card_id=card_id).first()
     lists = List.query.filter_by(
-        user_id=current_user.user_id, list_id=list_id).first()
+        user_id=current_user, list_id=list_id).first()
     file_name = card.card_title+".csv"
     f = open(file_name, "w+")
     f.write(
@@ -238,7 +243,12 @@ def downloadCard(current_user, list_id, card_id):
     title = card.card_title + " Summary"
     send_email(user.email, title, msg, file_name)
     os.remove(file_name)
-    return "Downloaded"
+
+@app.route("/downloadCard/<int:list_id>/<int:card_id>", methods=["GET"])
+@token_required
+def downloadCard(current_user, list_id, card_id):
+    cardDownload.delay(current_user.user_id, list_id, card_id)
+    return jsonify(message="Email sent sucessfully"), 201
 
 
 chat_url = "https://chat.googleapis.com/v1/spaces/AAAAgU1jlvs/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=FaqDLwCpOo94YHAluK4nkk432m3iIogFYDqYx1t1zfk%3D"
@@ -246,17 +256,50 @@ chat_url = "https://chat.googleapis.com/v1/spaces/AAAAgU1jlvs/messages?key=AIzaS
 
 @celery.task()
 def massChat():
-    message = {'text': "hello"}
+    message = {'text': "No deadline today"}
+    now=datetime.now().strftime("%Y-%m-%d")
+    card=Cards.query.filter_by(card_deadline=now).all()
+    if(len(card)>0):
+        message["text"]="Deadline today"
     headers = {'Content-Type': 'application/json; charset=UTF-8'}
     requests.post(chat_url, data=json.dumps(message), headers=headers)
     return ""
 
+@celery.task()
+def monthlyReport():
+    users=list(User.query.all())
+    print(users)
+    for user in users:
+        userId=user.user_id
+        cards=Cards.query.filter_by(user_id=userId).all()
+        cards_made=[]
+        now=datetime.now().strftime("%Y-%m-%d")
+        for i in cards:
+            if(i.card_completion_date!=None):
+                if(i.card_completion_date[:7]<=now[:7]):
+                    cards_made.append({"card_title":i.card_title,"card_completion_date":i.card_completion_date,"card_deadline":i.card_deadline,"card_status":i.card_status})
+        msg="Cards made in this month:\n\n"
+        j=1
+        for i in cards_made:
+            msg+=str(j)+". "
+            j+=1
+            msg+="Card Title: "+i["card_title"]+"\nCard Completion Date: "+i["card_completion_date"]+"\nCard Deadline: "+i["card_deadline"]+"\nCard Status: "+i["card_status"]+"\n\n"
+            # msg+=i["card_title"]+" "+i["card_completion_date"]+" "+i["card_deadline"]+" "+i["card_status"]+"\n"
+        send_email(user.email,"Monthly Report",msg)
+        # print(msg)
 
+@celery.on_after_finalize.connect
+def set_pdf_tasks(sender, **kwargs):
+    sender.add_periodic_task(crontab(minute=0,hour = 5,day_of_month = 1), monthlyReport.s(),name="Monthly Report")
+    # sender.add_periodic_task(10.0, monthlyReport.s(), name='Monthly Report')
+    
 @celery.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         crontab(hour=18), massChat.s(), name='Daily Reminder')
-
+    # sender.add_periodic_task(
+    #     10.0, massChat.s(), name='Daily Reminder')
+    # sender.add_periodic_task(crontab(minute=0,hour = 5,day_of_month = 1), monthlyReport.s(), name='Pdf Dashboard Report')
 
 if __name__ == "__main__":
     # db.create_all()

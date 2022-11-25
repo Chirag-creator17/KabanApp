@@ -1,0 +1,17 @@
+##cd to project
+cd /mnt/e/c++_programs/vue/kanban/backend/  
+
+## start redis server on windows
+sudo service redis-server start
+
+## start worker in ubuntu
+celery -A app.celery worker -l info
+
+## start beat in windows
+celery -A app.celery beat --max-interval 1 -l info
+
+## mailhog server
+http://172.29.201.190:8025/
+
+## start mailhog server
+~/go/bin/MailHog  

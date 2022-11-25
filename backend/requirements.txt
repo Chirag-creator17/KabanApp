@@ -1,0 +1,8 @@
+flask
+pyjwt
+requests
+flask_cors
+flask_sqlalchemy
+flask_caching
+redis
+celery

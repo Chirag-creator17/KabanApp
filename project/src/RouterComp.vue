@@ -10,6 +10,7 @@ import AddList from './components/AddList.vue'
 import EditList from './components/EditList.vue'
 import SummaryPage from './components/SummaryPage.vue'
 import ListSummary from './components/ListSummary.vue'
+import DeleteListChoice from './components/DeleteListChoice.vue'
 Vue.use(Router);
 
 export default new Router({
@@ -24,6 +25,7 @@ export default new Router({
     { path: '/AddCard/:listId', name: "AddCard", component: AddCard, props: true },
     {path : '/ListSummary/:listId', name: "ListSummary", component: ListSummary, props: true},
     { path: '/', redirect: '/Login' },
+    { path: '/DeleteListChoice/:listId', name: "DeleteListChoice", component: DeleteListChoice, props: true },
     { path: '/EditList/:listId', name: "EditList", component: EditList },
     { path: '/EditCard/:listId', name: "EditCard", component: EditCard, props: true }
   ]

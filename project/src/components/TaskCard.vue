@@ -70,21 +70,21 @@ export default {
   },
   methods: {
     async deleteCard(card_id) {
-      const url = "http://127.0.0.1:5000/cards/" + this.column_id;
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-access-token': `${localStorage.getItem('token')}`
-      }
-      const res = await fetch(url, {
-        method: "DELETE",
-        headers: headers,
-        body: JSON.stringify({
-          card_id: card_id
+        const url = "http://127.0.0.1:5000/cards/" + this.column_id;
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-access-token': `${localStorage.getItem('token')}`
+        }
+        const res = await fetch(url, {
+          method: "DELETE",
+          headers: headers,
+          body: JSON.stringify({
+            card_id: card_id
+          })
         })
-      })
-      const data = await res.json();
-      console.log(data);
-      this.$router.go()
+        const data = await res.json();
+        console.log(data);
+        this.$router.go()
     },
     async downloadCard(list_id, card_id) {
       const url = "http://127.0.0.1:5000/downloadCard/" + list_id + "/" + card_id;

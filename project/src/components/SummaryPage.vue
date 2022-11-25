@@ -4,12 +4,12 @@
             <div class="row">
                 <div v-for="column in d" :key="column.list_name" class="back-container">
                     <p class="card-text">{{ column.list_name }}</p>
-                    <p>Number of completed Task : {{column.missed_task}}/{{column.total_task}}</p>
-                    <p>Number of Deadline misses : {{column.pending_task}}</p>
+                    <p>Number of completed Task : {{ column.missed_task }}/{{ column.total_task }}</p>
+                    <p>Number of Deadline misses : {{ column.pending_task }}</p>
                     <template v-if="check(column.missed_task)">
                         <BarChart :data="barData(column.list_id)" />
                     </template>
-                    
+
                 </div>
             </div>
         </div>
@@ -44,7 +44,7 @@ export default {
             k.push(data[i]);
         }
         for (const col in k) {
-            let c = 0, d = 0,dp=0;
+            let c = 0, d = 0, dp = 0;
             // console.log(k[col].list_id);
             var url = "http://127.0.0.1:5000/cards/" + k[col].list_id;
             const res2 = await fetch(url, {
@@ -60,7 +60,7 @@ export default {
                 else {
                     d++;
                 }
-                if(new Date(data2[i].card_deadline).toJSON().slice(0, 10) < currentDateWithFormat && data2[i].card_status == "False"){
+                if (new Date(data2[i].card_deadline).toJSON().slice(0, 10) < currentDateWithFormat && data2[i].card_status == "False") {
                     dp++;
                 }
                 this.t.push(data2[i]);
@@ -77,7 +77,7 @@ export default {
     data() {
         return {
             d: [],
-            t:[]
+            t: []
         };
     },
     methods: {
@@ -90,18 +90,20 @@ export default {
             }
         },
         barData: function (a) {
-            let barDatas={
+            let barDatas = {
                 labels: [],
-                datasets: [{ label: "Completed", data: []  ,backgroundColor: "#512DA8",},{label:"Deadline", data: [],backgroundColor: "#FFA000",}]
+                datasets: [{ label: "Completed", data: [], backgroundColor: "#512DA8", }, { label: "Deadline", data: [], backgroundColor: "#FFA000", }]
             };
             // console.log(this.t);
             for (const col in this.t) {
                 // console.log(this.t[col].list_id);
                 if (this.t[col].list_id == a) {
-                    if(this.t[col].card_completion_date!=null){
+                    if (this.t[col].card_completion_date != null) {
                         barDatas.labels.push(this.t[col].card_title);
-                        const d = this.t[col].card_deadline.replaceAll("-","");
-                        const c = this.t[col].card_completion_date.replaceAll("-", "");
+                        let d = this.t[col].card_deadline.replaceAll("-", "");
+                        let c = this.t[col].card_completion_date.replaceAll("-", "");
+                        d -= 20220000;
+                        c -= 20220000;
                         barDatas.datasets[0].data.push(c);
                         barDatas.datasets[1].data.push(d);
                     }

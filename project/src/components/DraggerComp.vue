@@ -107,21 +107,44 @@ export default {
   },
   methods: {
     async deleteList(list_id) {
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-access-token': `${localStorage.getItem('token')}`
+      if (confirm('Do You want to delete list and all its cards then click on ok and if you want to move cards the click on cancel')) {
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-access-token': `${localStorage.getItem('token')}`
+        }
+        const url = "http://127.0.0.1:5000/lists";
+        const res = await fetch(url, {
+          method: "DELETE",
+          headers: headers,
+          body: JSON.stringify({
+            list_id: list_id
+          })
+        });
+        const data = await res.json();
+        console.log(data);
+        const url2 = "http://127.0.0.1:5000/cards/" + list_id;
+        const res2 = await fetch(url2, {
+          method: "GET",
+          headers: headers
+        });
+        const data2 = await res2.json();
+        for (let i = 0; i < data2.length; i++) {
+          await fetch(url2,
+            {
+              method: "DELETE",
+              headers: headers,
+              body: JSON.stringify({
+                card_id: data2[i].card_id
+              })
+            });
+        }
+        console.log(data2);
+        this.$router.go()
       }
-      const url = "http://127.0.0.1:5000/lists";
-      const res = await fetch(url, {
-        method: "DELETE",
-        headers: headers,
-        body: JSON.stringify({
-          list_id: list_id
-        })
-      });
-      const data = await res.json();
-      console.log(data);
-      this.$router.go()
+      else {
+        this.$router.push({ name: 'DeleteListChoice', params: { listId:list_id } })
+      }
+
     },
     async downloadList(list_id) {
       const headers = {

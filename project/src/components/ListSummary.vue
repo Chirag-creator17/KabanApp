@@ -105,8 +105,10 @@ export default {
                 if (this.t[col].list_id == a) {
                     if(this.t[col].card_completion_date!=null){
                         barDatas.labels.push(this.t[col].card_title);
-                        const d = this.t[col].card_deadline.replaceAll("-","");
-                        const c = this.t[col].card_completion_date.replaceAll("-", "");
+                        let d = this.t[col].card_deadline.replaceAll("-", "");
+                        let c = this.t[col].card_completion_date.replaceAll("-", "");
+                        d -= 20220000;
+                        c -= 20220000;
                         barDatas.datasets[0].data.push(c);
                         barDatas.datasets[1].data.push(d);
                     }
