@@ -11,7 +11,8 @@ celery -A app.celery worker -l info
 celery -A app.celery beat --max-interval 1 -l info
 
 ## mailhog server
-http://172.29.201.190:8025/
+ip = ip addr              // to get ip of wsl  
+ip:8025
 
 ## start mailhog server
 ~/go/bin/MailHog  

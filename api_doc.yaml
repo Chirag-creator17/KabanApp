@@ -1,0 +1,195 @@
+info:
+  title: openAPi specification for project
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:5000/
+
+tags:
+  - name: Lists
+    description: crud on lists
+  - name: cards
+    description: crud on cards
+
+paths:
+  /register:
+    Summary: register a new user
+    post:
+      tags:
+        - user
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+            name:
+              type: string
+            u_name:
+              type: string
+      responses:
+        201:
+          description: user created
+        409:
+          description: user already exists
+  /login:
+    Summary: login a user
+    post:
+      tags:
+        - user
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+      responses:
+        201:
+          description: user logged in
+        409:
+          description: user not found
+        401:
+          description: wrong password
+  /lists:
+    Summary: get all lists
+    get:
+      tags:
+        - Lists
+      responses:
+        200:
+          description: all lists
+    post:
+      tags:
+        - Lists
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            name:
+              type: string
+      responses:
+        201:
+          description: List added sucessfully
+    put:
+      tags:
+        - Lists
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+      responses:
+        201:
+          description: List updated sucessfully
+    delete:
+      tags:
+        - Lists
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            id:
+              type: integer
+      responses:
+        201:
+          description: List deleted sucessfully
+  /cards/List_id:
+    Summary: get all cards in a list
+    get:
+      tags:
+        - cards
+      responses:
+        200:
+          description: all cards
+    post:
+      tags:
+        - cards
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            card_title:
+              type: string
+            card_content:
+              type: string
+            card_deadline:
+              type: string
+            card_completion_date:
+              type: string
+            card_status:
+              type: string
+      responses:
+        201:
+          description: card added sucessfully
+    put:
+      tags:
+        - cards
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            card_id:
+              type: integer
+            card_title:
+              type: string
+            card_content:
+              type: string
+            card_deadline:
+              type: string
+            card_completion_date:
+              type: string
+            card_status:
+              type: string
+      responses:
+        201:
+          description: card updated sucessfully
+    delete:
+      tags:
+        - cards
+      requestBody:
+        content:
+          application/json:
+        body:
+          type: object
+          properties:
+            card_id:
+              type: integer
+      responses:
+        201:
+          description: card deleted sucessfully
+  /downloadList/list_id:
+    Summary: download a list
+    get:
+      tags:
+        - Lists
+      responses:
+        201:
+          description: Email sent sucessfully
+  /downloadCard/list_id/card_id:
+    Summary: download a card
+    get:
+      tags:
+        - cards
+      responses:
+        201:
+          description: Email sent sucessfully

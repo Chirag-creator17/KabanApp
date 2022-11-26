@@ -40,8 +40,9 @@ export default {
       this.showMenu = !this.showMenu;
     },
     logout() {
-      // localStorage.removeItem('user_name');
+      localStorage.removeItem('user_name');
       localStorage.removeItem('token');
+      localStorage.setItem('user_name', "Kanban");
       this.$router.push('/login');
     },
     getUserName() {
